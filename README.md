@@ -1,7 +1,7 @@
 # EE-CS-Project
 Final project for a degree in Electrical Engineering and Computer Science Noam Aburbeh and Yoav Barak
 
-# Submarine Pipeline Trajectory Mapping System
+# PipePath
 
 ## Project Overview
 This project aims to develop an innovative solution for tracking the trajectory of a small submarine within closed pipelines in environments where traditional navigation systems like GPS are ineffective. The solution integrates Inertial Navigation Systems (INS) with optical navigation to achieve precise trajectory mapping. This effort is in collaboration with iPIPE Ltd., with the guidance of Dr. Menashe Rajuan.
