@@ -90,7 +90,7 @@ class TrajectoryAnalyzer:
 
         # Extract time intervals
         dt = np.mean(np.diff(self.acceleration_data['Time'].values))  # Average time step
-
+        print(dt)
         # Extract acceleration and angular velocity data
         accel_data = self.acceleration_data[['ax', 'ay', 'az']].values
         angular_velocity_data = np.radians(self.acceleration_data[['wx', 'wy', 'wz']].values)  # Convert to radians/sec
