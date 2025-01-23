@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+from scipy.spatial.transform import Rotation as R
 class TrajectoryAnalyzer:
     def __init__(self, initial_velocity=(0.0, 0.0, 0.0), initial_orientation=(0.0, 0.0, 0.0)):
         """
@@ -53,96 +53,43 @@ class TrajectoryAnalyzer:
         except Exception as e:
             raise RuntimeError(f"Failed to load data: {e}")
 
-    # def calculate_trajectory(self):
-    #     """
-    #     Calculate the trajectory based on acceleration data using cumulative sum for integration.
-    #     """
-    #     if self.acceleration_data is None:
-    #         raise RuntimeError("Acceleration data not loaded. Use load_data() first.")
-    #
-    #     # Extract time intervals
-    #     dt = np.mean(np.diff(self.acceleration_data['Time'].values))  # Calculate average time step
-    #
-    #     # Extract acceleration data
-    #     accel_x = self.acceleration_data['ax'].values
-    #     accel_y = self.acceleration_data['ay'].values
-    #     accel_z = self.acceleration_data['az'].values
-    #
-    #     # Integrate acceleration to get velocity
-    #     velocity_x = np.cumsum(accel_x) * dt
-    #     velocity_y = np.cumsum(accel_y) * dt
-    #     velocity_z = np.cumsum(accel_z) * dt
-    #
-    #     # Integrate velocity to get position
-    #     position_x = np.cumsum(velocity_x) * dt
-    #     position_y = np.cumsum(velocity_y) * dt
-    #     position_z = np.cumsum(velocity_z) * dt
-    #
-    #     # Combine positions into an array
-    #     self.positions = np.vstack((position_x, position_y, position_z)).T
-
     def calculate_trajectory(self):
-        """
-        Calculate the trajectory using acceleration and angular velocity data.
-        """
         if self.acceleration_data is None:
             raise RuntimeError("Acceleration data not loaded. Use load_data() first.")
 
-        # Extract time intervals
         dt = np.mean(np.diff(self.acceleration_data['Time'].values))  # Average time step
-        print(dt)
-        # Extract acceleration and angular velocity data
-        accel_data = self.acceleration_data[['ax', 'ay', 'az']].values
-        angular_velocity_data = np.radians(self.acceleration_data[['wx', 'wy', 'wz']].values)  # Convert to radians/sec
 
-        # Initialize positions, velocities, and orientation
-        velocities = [self.initial_velocity]
-        positions = [np.zeros(3)]
-        orientations = [self.initial_orientation]
+        accel = self.acceleration_data[['ax', 'ay', 'az']].values
+        spin = self.acceleration_data[['wx', 'wy', 'wz']].values * np.pi / 180  # Convert to radians/sec
 
-        for i in range(1, len(accel_data)):
-            # Calculate new orientation
-            angular_vel = angular_velocity_data[i]
-            new_orientation = orientations[-1] + angular_vel * dt  # Update roll, pitch, yaw
-            orientations.append(new_orientation)
+        position = np.zeros((len(accel), 3))
+        velocity = np.zeros((len(accel), 3))
+        orientation = np.array(self.initial_orientation)
 
-            # Rotate acceleration to global frame using the new orientation
-            roll, pitch, yaw = new_orientation
-            rotation_matrix = self.get_rotation_matrix(roll, pitch, yaw)
-            accel_global = rotation_matrix @ accel_data[i]
+        for i in range(1, len(accel)):
+            # Update orientation
+            angular_velocity = spin[i] * dt
+            orientation = angular_velocity
 
-            # Update velocity
-            new_velocity = velocities[-1] + accel_global * dt
-            velocities.append(new_velocity)
+            # Calculate rotation matrix
+            R = rotation_matrix(*orientation)
 
-            # Update position
-            avg_velocity = (velocities[-1] + velocities[-2]) / 2
-            new_position = positions[-1] + avg_velocity * dt
-            positions.append(new_position)
+            # Rotate accumulated velocity to the new orientation
+            velocity[i - 1] = R @ velocity[i - 1]
 
-        self.positions = np.array(positions)
-        self.orientations = np.array(orientations)
+            # Rotate acceleration to global frame
+            rotated_accel = R @ accel[i]
 
-    def get_rotation_matrix(self, roll, pitch, yaw):
-        """
-        Compute the rotation matrix from roll, pitch, and yaw angles.
-        """
-        Rx = np.array([
-            [1, 0, 0],
-            [0, np.cos(roll), -np.sin(roll)],
-            [0, np.sin(roll), np.cos(roll)]
-        ])
-        Ry = np.array([
-            [np.cos(pitch), 0, np.sin(pitch)],
-            [0, 1, 0],
-            [-np.sin(pitch), 0, np.cos(pitch)]
-        ])
-        Rz = np.array([
-            [np.cos(yaw), -np.sin(yaw), 0],
-            [np.sin(yaw), np.cos(yaw), 0],
-            [0, 0, 1]
-        ])
-        return Rz @ Ry @ Rx
+            # Integrate acceleration for velocity
+            velocity[i] = velocity[i - 1] + rotated_accel * dt
+
+            # Integrate velocity for position
+            position[i] = position[i - 1] + velocity[i] * dt
+
+            # Save orientation for debugging/analysis
+            self.orientations.append(orientation.copy())
+
+        self.positions = position
 
     def normalize_time_intervals(self):
         """
@@ -198,6 +145,23 @@ class TrajectoryAnalyzer:
         plt.show()
 
 
+def rotation_matrix(roll, pitch, yaw):
+    """
+    Calculate the rotation matrix based on roll, pitch, and yaw (in radians).
+    """
+    Rx = np.array([[1, 0, 0],
+                   [0, np.cos(roll), -np.sin(roll)],
+                   [0, np.sin(roll), np.cos(roll)]])
+
+    Ry = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+                   [0, 1, 0],
+                   [-np.sin(pitch), 0, np.cos(pitch)]])
+
+    Rz = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                   [np.sin(yaw), np.cos(yaw), 0],
+                   [0, 0, 1]])
+
+    return Rz @ Ry @ Rx
 # Example usage
 file_path = 'square_motion_corrected.csv'  # Replace with the path to your file
 output_file = "trajectory_output.csv"  # Replace with your desired output path
