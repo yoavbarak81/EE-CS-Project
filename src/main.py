@@ -146,7 +146,7 @@ def rotation_matrix(roll, pitch, yaw):
 
 
 # Example usage
-file_path = 'ACCdd.csv'  # Replace with the actual path
+file_path = 'Square.csv'  # Replace with the actual path
 output_file = "trajectory_output.csv"
 
 analyzer = TrajectoryAnalyzer(initial_velocity=(0.0, 0.0, 0.0), initial_orientation=(0.0, 0.0, 0.0))

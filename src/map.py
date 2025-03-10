@@ -157,5 +157,5 @@ highlight_times = ["12:53:26"]  # Example timestamps to highlight
 plotter = GeoTrajectoryPlotter(initial_coords)
 plotter.load_trajectory(trajectory_file)
 plotter.convert_to_geo_coordinates()
-plotter.plot_on_map("trajectory_map.html", highlight_times)  # Create an interactive map
+plotter.plot_on_map("Square_map.html", highlight_times)  # Create an interactive map
 plotter.plot_trajectory_on_2D_map(highlight_times)  # Create a 2D trajectory plot
