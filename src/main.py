@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.spatial.transform import Rotation as R
-from datetime import datetime
+import Noise_Filtering
+
 
 class TrajectoryAnalyzer:
     def __init__(self, initial_velocity=(0.0, 0.0, 0.0), initial_orientation=(0.0, 0.0, 0.0)):
@@ -56,7 +56,7 @@ class TrajectoryAnalyzer:
         position = np.zeros((len(accel), 3))
         velocity = np.zeros((len(accel), 3))
         velocity[0] = self.initial_velocity
-        orientation = np.array(self.initial_orientation)
+        self.orientations = [self.initial_orientation]
 
         for i in range(1, len(accel)):
             dt = self.time_intervals[i]  # Use actual time interval
@@ -81,7 +81,10 @@ class TrajectoryAnalyzer:
             position[i] = position[i - 1] + velocity[i] * dt
 
             # Save orientation
-            self.orientations.append(orientation.copy())
+            if i < len(self.orientations):
+                self.orientations[i] = orientation.copy()
+            else:
+                self.orientations.append(orientation.copy())
 
         self.positions = position
 
@@ -128,6 +131,12 @@ class TrajectoryAnalyzer:
         ax.legend()
         plt.show()
 
+    def run(self, file_path, output_file):
+        self.load_data(file_path)
+        self.calculate_trajectory()
+        self.save_trajectory(output_file)
+        self.plot_trajectory()
+
 
 def rotation_matrix(roll, pitch, yaw):
     Rx = np.array([[1, 0, 0],
@@ -145,12 +154,40 @@ def rotation_matrix(roll, pitch, yaw):
     return Rz @ Ry @ Rx
 
 
-# Example usage
-file_path = 'Square.csv'  # Replace with the actual path
-output_file = "trajectory_output.csv"
+if __name__ == "__main__":
+    # File paths
+    clean_file = 'Routes/circle.csv'
+    noise_file = 'circle_with_noise.csv'
+    clean_file_output = 'clean_file_output.csv'
+    noise_file_output = 'noise_file_output.csv'
 
-analyzer = TrajectoryAnalyzer(initial_velocity=(0.0, 0.0, 0.0), initial_orientation=(0.0, 0.0, 0.0))
-analyzer.load_data(file_path)
-analyzer.calculate_trajectory()
-analyzer.save_trajectory(output_file)
-analyzer.plot_trajectory()
+    # Initialize TrajectoryAnalyzer
+    analyzer = TrajectoryAnalyzer(initial_velocity=(0.0, 0.0, 0.0), initial_orientation=(0.0, 0.0, 0.0))
+
+    # Process clean file
+    analyzer.run(clean_file, clean_file_output)
+
+    # Add synthetic noise to the clean file and save as noise_file
+    Noise_Filtering.add_synthetic_noise(clean_file, noise_file, noise_level=0.01)
+
+    # Process noise file
+    analyzer.run(noise_file, noise_file_output)
+
+    # Columns to compare
+    columns_to_compare = ['x', 'y', 'z', 'roll', 'pitch', 'yaw']
+
+    # Calculate Mean Squared Error (MSE) for each column
+    mse_noise_results = Noise_Filtering.calculate_mse(clean_file_output, noise_file_output, columns_to_compare)
+
+    # Print MSE results
+    print("Mean Squared Error (MSE) Results:")
+    for col in columns_to_compare:
+        mse_before = mse_noise_results[col]
+        print(f"  Column: {col}")
+        print(f"    MSE : {mse_before:.6f}")
+
+    # Compare start and end locations
+    result = Noise_Filtering.compare_start_end_locations(clean_file_output, noise_file_output, None, None)
+    print("\nStart and End Location Errors:")
+    print(f"  Start Location Error: {result[0]}")
+    print(f"  End Location Error: {result[1]}")
