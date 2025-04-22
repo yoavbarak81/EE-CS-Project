@@ -23,7 +23,7 @@ class TrajectoryAnalyzer:
                 raise ValueError(f"File must contain {required_columns} columns.")
 
             # Convert timestamps to datetime objects
-            data['Time'] = pd.to_datetime(data['Time'], format='%H:%M:%S:%f')
+            data['Time'] = pd.to_datetime(data['Time'], format='%H:%M:%S:%fff')
 
             # Compute time intervals in seconds
             self.time_intervals = data['Time'].diff().dt.total_seconds().fillna(0).values
@@ -156,7 +156,7 @@ def rotation_matrix(roll, pitch, yaw):
 
 if __name__ == "__main__":
     # File paths
-    clean_file = 'Routes/circle.csv'
+    clean_file = 'Routes/circle_real.csv'
     noise_file = 'circle_with_noise.csv'
     clean_file_output = 'clean_file_output.csv'
     noise_file_output = 'noise_file_output.csv'

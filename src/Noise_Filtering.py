@@ -82,10 +82,6 @@ def moving_average_filter(file, columns, window_size, output_file):
     print(f"Filtered data saved to {output_file}")
 
 
-import pandas as pd
-import numpy as np
-
-
 def compare_start_end_locations(clean_file, predict_file, start_location_clean=None, end_location_clean=None):
     # Load clean data if start or end locations are not provided
     if start_location_clean is None or end_location_clean is None:
