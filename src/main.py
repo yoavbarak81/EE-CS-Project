@@ -13,35 +13,59 @@ class TrajectoryAnalyzer:
         self.positions = None
         self.orientations = [self.initial_orientation]
 
+    def convert_g_to_mps2(df, columns):
+        """
+        Converts acceleration values from G to m/s^2.
+
+        :param df: pandas DataFrame
+        :param columns: list of column names to convert
+        """
+        G = 9.80665  # 1G in m/s²
+        df[columns] = df[columns] * G
+
     def load_data(self, file_path):
         try:
-            data = pd.read_csv(file_path)
+            # Load CSV using comma separator
+            data = pd.read_csv(file_path, sep=',')
 
-            required_columns = ['Time', 'Accel x[m/s^2]', 'Accel y[m/s^2]', 'Accel z[m/s^2]',
-                                'Spin x[degrees/sec]', 'Spin y[degrees/sec]', 'Spin z[degrees/sec]']
-            if not all(col in data.columns for col in required_columns):
-                raise ValueError(f"File must contain {required_columns} columns.")
+            # Clean column names
+            data.columns = data.columns.str.strip()
 
-            # Convert timestamps to datetime objects
-            data['Time'] = pd.to_datetime(data['Time'], format='%H:%M:%S:%fff')
+            # Debug print
+            print("Cleaned column names:", data.columns.tolist())
 
-            # Compute time intervals in seconds
+            # Select only the relevant columns
+            required_cols = ['Chiptime', 'ax(g)', 'ay(g)', 'az(g)', 'wx(deg/s)', 'wy(deg/s)', 'wz(deg/s)']
+            if not all(col in data.columns for col in required_cols):
+                raise ValueError(f"Missing required columns. Found only: {data.columns.tolist()}")
+
+            data = data[required_cols]
+            data.columns = ['Time', 'ax_g', 'ay_g', 'az_g', 'wx', 'wy', 'wz']
+
+            # Convert acceleration from G to m/s²
+            G = 9.80665
+            data['ax'] = data['ax_g'] * G
+            data['ay'] = data['ay_g'] * G
+            data['az'] = data['az_g'] * G
+            data.drop(columns=['ax_g', 'ay_g', 'az_g'], inplace=True)
+
+            # Format Time column: convert last colon to dot
+            data['Time'] = data['Time'].astype(str).str.strip()
+            data['Time'] = data['Time'].str.replace(r'(?<=\d{2}:\d{2}:\d{2}):', '.', regex=True)
+            data['Time'] = pd.to_datetime(data['Time'], format='%H:%M:%S.%f', errors='coerce')
+
+            if data['Time'].isnull().any():
+                bad_times = data.loc[data['Time'].isnull(), 'Time'].head(3).tolist()
+                raise ValueError(f"Some time values could not be parsed. Examples: {bad_times}")
+
+            # Compute time intervals
             self.time_intervals = data['Time'].diff().dt.total_seconds().fillna(0).values
             self.time_intervals[0] = self.time_intervals[1:].mean()
             self.time_intervals = np.insert(self.time_intervals, 0, 0)
-            self.acceleration_data = data[['Time', 'Accel x[m/s^2]', 'Accel y[m/s^2]', 'Accel z[m/s^2]',
-                                           'Spin x[degrees/sec]', 'Spin y[degrees/sec]', 'Spin z[degrees/sec]']].copy()
-            zero_row = pd.DataFrame([[pd.NaT, 0, 0, 0, 0, 0, 0]], columns=self.acceleration_data.columns)
-            self.acceleration_data = pd.concat([zero_row, self.acceleration_data], ignore_index=True)
 
-            self.acceleration_data.rename(columns={
-                'Accel x[m/s^2]': 'ax',
-                'Accel y[m/s^2]': 'ay',
-                'Accel z[m/s^2]': 'az',
-                'Spin x[degrees/sec]': 'wx',
-                'Spin y[degrees/sec]': 'wy',
-                'Spin z[degrees/sec]': 'wz'
-            }, inplace=True)
+            # Add initial zero row for calculation
+            zero_row = pd.DataFrame([[pd.NaT, 0, 0, 0, 0, 0, 0]], columns=['Time', 'ax', 'ay', 'az', 'wx', 'wy', 'wz'])
+            self.acceleration_data = pd.concat([zero_row, data], ignore_index=True)
 
         except Exception as e:
             raise RuntimeError(f"Failed to load data: {e}")
@@ -156,7 +180,7 @@ def rotation_matrix(roll, pitch, yaw):
 
 if __name__ == "__main__":
     # File paths
-    clean_file = 'Routes/circle_real.csv'
+    clean_file = 'Routes/22042025/20250422130242.csv'
     noise_file = 'circle_with_noise.csv'
     clean_file_output = 'clean_file_output.csv'
     noise_file_output = 'noise_file_output.csv'
@@ -191,3 +215,4 @@ if __name__ == "__main__":
     print("\nStart and End Location Errors:")
     print(f"  Start Location Error: {result[0]}")
     print(f"  End Location Error: {result[1]}")
+
