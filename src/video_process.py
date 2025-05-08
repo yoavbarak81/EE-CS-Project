@@ -88,7 +88,7 @@ def estimate_speeds(timestamps, segment_length=12.0, max_speed_threshold=10.0):
     :param timestamps: List of filtered weld timestamps (in seconds).
     :param segment_length: Distance between welds in meters.
     :param max_speed_threshold: Maximum allowed speed (m/s). Intervals above this will be skipped.
-    :return: List of speeds (m/s) between valid weld pairs.
+    :return: List of tuples (timestamp, speed) for each valid weld interval.
     """
     speeds = []
     i = 1
@@ -97,14 +97,19 @@ def estimate_speeds(timestamps, segment_length=12.0, max_speed_threshold=10.0):
         if delta_time > 0:
             speed = segment_length / delta_time
             if speed <= max_speed_threshold:
-                speeds.append(round(speed, 2))
+                speeds.append((round(timestamps[i], 3), round(speed, 2)))
                 i += 1
             else:
-                # skip this timestamp and try the next one
-                i += 1
+                i += 1  # Skip unrealistic interval
         else:
             i += 1
     return speeds
+
+
+def extract_speed_from_video(video_path, detection_threshold=1750):
+    raw_times = extract_weld_timestamps(video_path, detection_threshold)
+    clean_times = filter_and_average_timestamps(raw_times)
+    return estimate_speeds(clean_times)
 
 
 # Example usage
@@ -115,4 +120,4 @@ if __name__ == "__main__":
     speeds = estimate_speeds(clean_times)
     print(raw_times)
     print("Filtered Weld timestamps (seconds):", clean_times)
-    print("Estimated Speeds (m/s):", speeds)
+    print("Estimated Speeds [time(s), speed(m/s)]:", speeds)

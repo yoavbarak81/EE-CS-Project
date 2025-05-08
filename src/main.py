@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import Noise_Filtering
+from video_process import extract_speed_from_video
 
 
 class TrajectoryAnalyzer:
@@ -12,6 +13,7 @@ class TrajectoryAnalyzer:
         self.time_intervals = None
         self.positions = None
         self.orientations = [self.initial_orientation]
+        self.video_speeds = []
 
     def convert_g_to_mps2(df, columns):
         """
@@ -155,6 +157,80 @@ class TrajectoryAnalyzer:
         ax.legend()
         plt.show()
 
+    def load_video_speeds(self, video_path):
+        try:
+            self.video_speeds = extract_speed_from_video(video_path)
+            print(f"Loaded {len(self.video_speeds)} video-based speed entries.")
+        except Exception as e:
+            print(f"Error loading video speeds: {e}")
+            self.video_speeds = []
+
+    def apply_video_correction(self, segment_length=12.0):
+        """
+        Apply linear correction to self.positions based on self.video_speeds.
+
+        Assumes self.positions and self.acceleration_data['Time'] are initialized.
+        Uses video-based weld timestamps to correct IMU drift between segments.
+        """
+        if self.positions is None or self.acceleration_data is None or not self.video_speeds:
+            print("Missing data for correction.")
+            return
+
+        imu_times = self.acceleration_data['Time'].dropna().astype('datetime64[ns]').astype(np.int64) / 1e9
+        imu_positions = np.linalg.norm(self.positions, axis=1)
+        video_timestamps = [round(t, 3) for t, _ in self.video_speeds]
+
+        video_distances = [i * segment_length for i in range(1, len(video_timestamps) + 1)]
+        corrected = imu_positions.copy()
+
+        for i in range(len(video_timestamps) - 1):
+            t_start = video_timestamps[i]
+            t_end = video_timestamps[i + 1]
+            d_start_imu = np.interp(t_start, imu_times, imu_positions)
+            d_end_imu = np.interp(t_end, imu_times, imu_positions)
+            d_start_video = video_distances[i]
+            d_end_video = video_distances[i + 1]
+
+            if d_end_imu == d_start_imu:
+                continue  # Avoid division by zero
+
+            scale = (d_end_video - d_start_video) / (d_end_imu - d_start_imu)
+            in_segment = (imu_times >= t_start) & (imu_times <= t_end)
+            corrected[in_segment] = d_start_video + (imu_positions[in_segment] - d_start_imu) * scale
+
+        # Update positions proportionally to original vector directions
+        factors = corrected / (np.linalg.norm(self.positions, axis=1) + 1e-8)
+        self.positions = self.positions * factors[:, np.newaxis]
+
+        print("Applied linear video correction to trajectory.")
+
+    def run_with_video_correction(self, imu_file_path, video_file_path, output_file_path, segment_length=12.0):
+        """
+        Run the full trajectory pipeline including video-based correction.
+
+        :param imu_file_path: Path to the IMU CSV data
+        :param video_file_path: Path to the video file for weld detection
+        :param output_file_path: Path to save the corrected trajectory CSV
+        :param segment_length: Distance between welds (default 12.0 meters)
+        """
+        print("Loading video speeds...")
+        self.load_video_speeds(video_file_path)
+
+        print("Loading IMU data...")
+        self.load_data(imu_file_path)
+
+        print("Calculating trajectory from IMU...")
+        self.calculate_trajectory()
+
+        print("Applying video-based linear correction...")
+        self.apply_video_correction(segment_length=segment_length)
+
+        print("Saving corrected trajectory...")
+        self.save_trajectory(output_file_path)
+
+        print("Plotting corrected trajectory...")
+        self.plot_trajectory()
+
     def run(self, file_path, output_file):
         self.load_data(file_path)
         self.calculate_trajectory()
@@ -184,6 +260,7 @@ if __name__ == "__main__":
     noise_file = 'circle_with_noise.csv'
     clean_file_output = 'clean_file_output.csv'
     noise_file_output = 'noise_file_output.csv'
+    video_path = "videos/2024-06-24_11_41_27 (1).mp4"
 
     # Initialize TrajectoryAnalyzer
     analyzer = TrajectoryAnalyzer(initial_velocity=(0.0, 0.0, 0.0), initial_orientation=(0.0, 0.0, 0.0))
