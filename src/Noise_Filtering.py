@@ -100,3 +100,63 @@ def compare_start_end_locations(clean_file, predict_file, start_location_clean=N
 
     # Return results
     return [start_error.tolist(), end_error.tolist()]
+
+def validate_video_vs_imu_speeds(self, segment_length=12.0, show_plot=True):
+    """
+    Compare speeds estimated from video welds with speeds from IMU-based trajectory.
+    Print statistics and optionally show plot.
+
+    :param segment_length: Assumed distance between welds (meters)
+    :param show_plot: Whether to display a comparison plot
+    """
+    if self.positions is None or not self.video_speeds:
+        print("Missing data for validation.")
+        return
+
+    imu_times = self.acceleration_data['Time'].dropna().astype('datetime64[ns]').astype(np.int64) / 1e9
+    imu_positions = np.linalg.norm(self.positions, axis=1)
+
+    imu_estimated_speeds = []
+    video_times = [t for t, _ in self.video_speeds]
+
+    for i in range(1, len(video_times)):
+        t0, t1 = video_times[i - 1], video_times[i]
+        dt = t1 - t0
+        if dt <= 0:
+            continue
+
+        # distance between those two times according to IMU
+        p0 = np.interp(t0, imu_times, imu_positions)
+        p1 = np.interp(t1, imu_times, imu_positions)
+        dist = p1 - p0
+        speed = dist / dt
+        imu_estimated_speeds.append((t1, speed))
+
+    # compare
+    video_speeds_only = [s for _, s in self.video_speeds[1:]]  # skip first (we're comparing deltas)
+    imu_speeds_only = [s for _, s in imu_estimated_speeds]
+
+    if len(imu_speeds_only) != len(video_speeds_only):
+        print("Warning: mismatch in lengths between video and IMU speeds")
+
+    diffs = np.array(imu_speeds_only) - np.array(video_speeds_only)
+    mae = np.mean(np.abs(diffs))
+    rmse = np.sqrt(np.mean(diffs ** 2))
+    max_err = np.max(np.abs(diffs))
+
+    print(f"\nValidation Results (IMU vs Video):")
+    print(f"  MAE  : {mae:.3f} m/s")
+    print(f"  RMSE : {rmse:.3f} m/s")
+    print(f"  Max error: {max_err:.3f} m/s")
+
+    if show_plot:
+        import matplotlib.pyplot as plt
+        x_axis = [round(t, 1) for t, _ in imu_estimated_speeds]
+        plt.plot(x_axis, imu_speeds_only, label='IMU estimated', marker='o')
+        plt.plot(x_axis, video_speeds_only, label='Video (ground truth)', marker='x')
+        plt.title("Speed Comparison: IMU vs Video")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Speed (m/s)")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
