@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PipePath: Submarine Tracking Dashboard</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>PipePath: Submarine Tracking Dashboard</h1>
+      <h2 style="font-size: 1.2rem; color: #666; text-align: center">
+        Made by Yoav Barak and noam aburbeh
+      </h2>
+    </header>
+
+    <main>
+      <div class="container">
+        <div id="map"></div>
+        <div class="controls">
+          <div class="control-section trajectory-plotter">
+            <h2>Trajectory Plotter</h2>
+            <div class="form-group">
+              <label for="startLat">Starting Latitude:</label>
+              <input type="text" id="startLat" placeholder="e.g., 32.0943" />
+            </div>
+            <div class="form-group">
+              <label for="startLng">Starting Longitude:</label>
+              <input type="text" id="startLng" placeholder="e.g., 34.9551" />
+            </div>
+            <button id="setStartPoint">Set Start</button>
+            <button id="plotTrajectory">Plot Trajectory</button>
+            <button id="clearTrajectory">Clear Trajectory</button>
+          </div>
+
+          <div class="control-section file-manager">
+            <h2>File Manager</h2>
+            <div class="file-upload-area">
+              <input type="file" id="csvFile" accept=".csv,.txt" />
+              <label for="csvFile" class="file-upload-label"
+                >Click to Upload CSV</label
+              >
+            </div>
+            <div id="fileInfo">
+              <p>
+                <strong>Current File:</strong>
+                <span id="fileName">No file selected</span> (<span
+                  id="fileSize"
+                ></span
+                >)
+              </p>
+            </div>
+            <div id="filesListContainer">
+              <h3>Uploaded Trajectories</h3>
+              <div id="filesList"></div>
+            </div>
+            <button id="clearAllFiles">Clear All Files</button>
+          </div>
+
+          <div class="control-section info-panel">
+            <h2>Information</h2>
+            <div id="clickedCoords">
+              Click on the map to see coordinates here.
+            </div>
+            <div id="trajectoryInfo" style="display: none">
+              <h3>Trajectory Details</h3>
+              <div id="trajectoryStats"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script type="module" src="js/main.js"></script>
+  </body>
+  <div id="noteEditor" class="modal">
+    <div class="modal-content">
+      <span class="close-button">&times;</span>
+      <h2>Add a note</h2>
+      <p>Timeframe: <span id="noteTimestamp"></span></p>
+      <textarea
+        id="noteText"
+        placeholder="Enter your note here..."
+        rows="4"
+      ></textarea>
+      <div class="image-upload-container">
+        <input
+          type="file"
+          id="noteImageInput"
+          accept="image/*"
+          style="display: none"
+        />
+        <button id="selectImageButton">Add Image</button>
+        <img
+          id="noteImagePreview"
+          src=""
+          alt="Image preview"
+          class="image-preview"
+        />
+        <button
+          id="removeNoteImageButton"
+          class="remove-image-btn"
+          style="display: none"
+        >
+          &times;
+        </button>
+      </div>
+      <button id="saveNoteButton">Save Note</button>
+      <button id="deleteNoteButton">Delete Note</button>
+    </div>
+  </div>
+</html>
